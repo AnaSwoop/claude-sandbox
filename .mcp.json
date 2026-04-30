@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/mcp.json",
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "excalidraw": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-excalidraw"],
+      "_comment_": "If this package name is wrong for your installed Excalidraw MCP, swap it. As of writing, several community implementations exist; verify the one you want to use."
+    }
+  }
+}

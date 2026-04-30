@@ -1,0 +1,59 @@
+name: Dependabot Triage
+
+# Runs when Dependabot opens or updates a PR. Calls Claude (via the Anthropic
+# GitHub Action) and posts a sticky comment with a MERGE / HOLD / INVESTIGATE
+# verdict. The agent definition lives at .claude/agents/dependabot-triage.md.
+#
+# Important: keep the action version (anthropics/claude-code-action@<ver>) in
+# sync with the .github/workflows/claude.yml that /install-github-app generated.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: dependabot-triage-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for CI to settle
+        # Best-effort: give CI a chance to start before we read its status.
+        run: sleep 30
+
+      - name: Triage with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Restrict tool use to read-only inspection + commenting.
+          allowed_tools: 'Read,Grep,Glob,Bash(gh pr *),Bash(gh run *),Bash(git diff*),Bash(git log*),WebFetch'
+          prompt: |
+            You are running on a Dependabot PR (#${{ github.event.pull_request.number }}) in repo ${{ github.repository }}.
+
+            Use the `dependabot-triage` subagent (defined in .claude/agents/dependabot-triage.md) to:
+              1. Inspect the PR diff (`gh pr diff ${{ github.event.pull_request.number }}`)
+              2. Read the PR body for changelog/release notes
+              3. Check CI status (`gh pr checks ${{ github.event.pull_request.number }}`)
+              4. Grep the repo for usages of the bumped package to assess surface area
+              5. Output a verdict: MERGE / HOLD / INVESTIGATE following the agent's documented format
+
+            Then post that verdict as a sticky PR comment using `gh pr comment ${{ github.event.pull_request.number }} --body-file -`.
+            Use `gh pr comment ... --edit-last` if a previous triage comment exists, so we don't spam on synchronize events.
+
+            Do NOT approve, merge, or close the PR. Only comment.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
