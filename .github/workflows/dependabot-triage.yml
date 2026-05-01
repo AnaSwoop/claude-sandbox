@@ -45,6 +45,10 @@ jobs:
           # Tell the action it's allowed to run on a Dependabot-authored PR
           # (by default the action skips bot authors).
           allowed_bots: 'dependabot[bot]'
+          # Post Claude's output as a sticky PR comment that updates on
+          # subsequent triage runs. Without this, Claude's verdict is logged
+          # but never surfaced on the PR.
+          use_sticky_comment: true
           # Lets Claude inspect Actions / CI status via the API.
           additional_permissions: |
             actions: read
