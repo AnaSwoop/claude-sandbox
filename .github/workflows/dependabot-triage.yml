@@ -45,15 +45,13 @@ jobs:
           # Tell the action it's allowed to run on a Dependabot-authored PR
           # (by default the action skips bot authors).
           allowed_bots: 'dependabot[bot]'
-          # Post Claude's output as a sticky PR comment that updates on
-          # subsequent triage runs. Without this, Claude's verdict is logged
-          # but never surfaced on the PR.
-          use_sticky_comment: true
           # Lets Claude inspect Actions / CI status via the API.
           additional_permissions: |
             actions: read
-          # Tool allowlist passes through to the Claude CLI inside the action.
-          claude_args: '--allowed-tools "Read,Grep,Glob,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh run list*),Bash(gh run view*),Bash(git diff*),Bash(git log*),WebFetch"'
+          # Tool allowlist — includes gh pr comment so Claude can post the
+          # verdict itself. (use_sticky_comment is the action's progress UI,
+          # not a final-output relay.)
+          claude_args: '--allowed-tools "Read,Grep,Glob,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh pr comment*),Bash(gh issue view*),Bash(gh run list*),Bash(gh run view*),Bash(git diff*),Bash(git log*),WebFetch"'
           prompt: |
             You are running on a Dependabot PR (#${{ github.event.pull_request.number }}) in repo ${{ github.repository }}.
 
@@ -62,6 +60,10 @@ jobs:
               2. Read the PR body for changelog / release-note excerpts
               3. Check CI status via `gh pr checks ${{ github.event.pull_request.number }}`
               4. Grep the repo for usages of the bumped package to assess surface area
-              5. Output a verdict: MERGE / HOLD / INVESTIGATE in the agent's documented format
+              5. Decide a verdict — MERGE / HOLD / INVESTIGATE — in the agent's documented format
 
-            Output ONLY the verdict comment body — the action will post it as a sticky PR comment automatically. Do not call `gh pr comment` yourself, do not approve, do not merge, do not close the PR.
+            Then post the verdict as a PR comment with `gh pr comment ${{ github.event.pull_request.number }} --body-file -`. Start the body with this exact marker line so a human can grep for prior triage comments later:
+
+            <!-- claude-dependabot-triage -->
+
+            Do NOT approve, merge, close, or push to the PR. Only comment.
