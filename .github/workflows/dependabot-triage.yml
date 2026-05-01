@@ -1,11 +1,13 @@
 name: Dependabot Triage
 
-# Runs when Dependabot opens or updates a PR. Calls Claude (via the Anthropic
-# GitHub Action) and posts a sticky comment with a MERGE / HOLD / INVESTIGATE
-# verdict. The agent definition lives at .claude/agents/dependabot-triage.md.
+# Runs when Dependabot opens or updates a PR. Calls Claude via the Anthropic
+# GitHub Action and lets it post a sticky MERGE / HOLD / INVESTIGATE verdict
+# comment on the PR. The agent definition lives at
+# .claude/agents/dependabot-triage.md.
 #
-# Important: keep the action version (anthropics/claude-code-action@<ver>) in
-# sync with the .github/workflows/claude.yml that /install-github-app generated.
+# Auth: uses CLAUDE_CODE_OAUTH_TOKEN (provisioned by /install-github-app),
+# matching .github/workflows/claude.yml. If you swap to ANTHROPIC_API_KEY,
+# update both files together.
 
 on:
   pull_request:
@@ -32,28 +34,30 @@ jobs:
           fetch-depth: 0
 
       - name: Wait for CI to settle
-        # Best-effort: give CI a chance to start before we read its status.
+        # Best-effort: give the other CI jobs a chance to start so the
+        # `gh pr checks` Claude runs against has something useful to read.
         run: sleep 30
 
       - name: Triage with Claude
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Restrict tool use to read-only inspection + commenting.
-          allowed_tools: 'Read,Grep,Glob,Bash(gh pr *),Bash(gh run *),Bash(git diff*),Bash(git log*),WebFetch'
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Tell the action it's allowed to run on a Dependabot-authored PR
+          # (by default the action skips bot authors).
+          allowed_bots: 'dependabot[bot]'
+          # Lets Claude inspect Actions / CI status via the API.
+          additional_permissions: |
+            actions: read
+          # Tool allowlist passes through to the Claude CLI inside the action.
+          claude_args: '--allowed-tools "Read,Grep,Glob,Bash(gh pr view*),Bash(gh pr diff*),Bash(gh pr checks*),Bash(gh run list*),Bash(gh run view*),Bash(git diff*),Bash(git log*),WebFetch"'
           prompt: |
             You are running on a Dependabot PR (#${{ github.event.pull_request.number }}) in repo ${{ github.repository }}.
 
             Use the `dependabot-triage` subagent (defined in .claude/agents/dependabot-triage.md) to:
-              1. Inspect the PR diff (`gh pr diff ${{ github.event.pull_request.number }}`)
-              2. Read the PR body for changelog/release notes
-              3. Check CI status (`gh pr checks ${{ github.event.pull_request.number }}`)
+              1. Inspect the PR diff via `gh pr diff ${{ github.event.pull_request.number }}`
+              2. Read the PR body for changelog / release-note excerpts
+              3. Check CI status via `gh pr checks ${{ github.event.pull_request.number }}`
               4. Grep the repo for usages of the bumped package to assess surface area
-              5. Output a verdict: MERGE / HOLD / INVESTIGATE following the agent's documented format
+              5. Output a verdict: MERGE / HOLD / INVESTIGATE in the agent's documented format
 
-            Then post that verdict as a sticky PR comment using `gh pr comment ${{ github.event.pull_request.number }} --body-file -`.
-            Use `gh pr comment ... --edit-last` if a previous triage comment exists, so we don't spam on synchronize events.
-
-            Do NOT approve, merge, or close the PR. Only comment.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Output ONLY the verdict comment body — the action will post it as a sticky PR comment automatically. Do not call `gh pr comment` yourself, do not approve, do not merge, do not close the PR.
