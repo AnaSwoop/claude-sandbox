@@ -1,8 +1,31 @@
 import { useState, type FormEvent } from 'react'
-import { useTodos } from '../hooks/useTodos'
+import { useTodos, type TodoFilter } from '../hooks/useTodos'
+
+const FILTER_LABELS: Record<TodoFilter, string> = {
+  all: 'All',
+  active: 'Active',
+  completed: 'Completed',
+}
+
+const EMPTY_COPY: Record<TodoFilter, string> = {
+  all: 'No todos yet',
+  active: 'Nothing active',
+  completed: 'Nothing completed',
+}
+
+const FILTER_KEYS = Object.keys(FILTER_LABELS) as TodoFilter[]
 
 export function TodoList() {
-  const { todos, addTodo, toggleTodo, deleteTodo, clearCompleted } = useTodos()
+  const {
+    todos,
+    visibleTodos,
+    filter,
+    setFilter,
+    addTodo,
+    toggleTodo,
+    deleteTodo,
+    clearCompleted,
+  } = useTodos()
   const [draft, setDraft] = useState('')
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -30,30 +53,47 @@ export function TodoList() {
         </button>
       </form>
 
-      <ul>
-        {todos.map((todo) => (
-          <li key={todo.id} data-testid="todo-item">
-            <label>
-              <input
-                type="checkbox"
-                checked={todo.done}
-                onChange={() => toggleTodo(todo.id)}
-                aria-label={`Mark ${todo.text} as ${todo.done ? 'not done' : 'done'}`}
-              />
-              <span style={{ textDecoration: todo.done ? 'line-through' : 'none' }}>
-                {todo.text}
-              </span>
-            </label>
-            <button
-              type="button"
-              onClick={() => deleteTodo(todo.id)}
-              aria-label={`Delete ${todo.text}`}
-            >
-              Delete
-            </button>
-          </li>
+      <div role="group" aria-label="Filter todos">
+        {FILTER_KEYS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+          >
+            {FILTER_LABELS[key]}
+          </button>
         ))}
-      </ul>
+      </div>
+
+      {visibleTodos.length === 0 ? (
+        <p>{EMPTY_COPY[filter]}</p>
+      ) : (
+        <ul>
+          {visibleTodos.map((todo) => (
+            <li key={todo.id} data-testid="todo-item">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={todo.done}
+                  onChange={() => toggleTodo(todo.id)}
+                  aria-label={`Mark ${todo.text} as ${todo.done ? 'not done' : 'done'}`}
+                />
+                <span style={{ textDecoration: todo.done ? 'line-through' : 'none' }}>
+                  {todo.text}
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => deleteTodo(todo.id)}
+                aria-label={`Delete ${todo.text}`}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <footer>
         <span>{remaining} remaining</span>

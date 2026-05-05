@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadTodos, saveTodos, type Todo } from '../lib/storage'
 
+export type TodoFilter = 'all' | 'active' | 'completed'
+
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>(() => loadTodos())
+  const [filter, setFilter] = useState<TodoFilter>('all')
 
   useEffect(() => {
     saveTodos(todos)
@@ -29,5 +32,20 @@ export function useTodos() {
     setTodos((prev) => prev.filter((t) => !t.done))
   }, [])
 
-  return { todos, addTodo, toggleTodo, deleteTodo, clearCompleted }
+  const visibleTodos = todos.filter((todo) => {
+    if (filter === 'active') return !todo.done
+    if (filter === 'completed') return todo.done
+    return true
+  })
+
+  return {
+    todos,
+    visibleTodos,
+    filter,
+    setFilter,
+    addTodo,
+    toggleTodo,
+    deleteTodo,
+    clearCompleted,
+  }
 }
