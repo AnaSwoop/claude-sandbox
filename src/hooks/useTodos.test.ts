@@ -70,4 +70,36 @@ describe('useTodos', () => {
     expect(reloaded.result.current.todos).toHaveLength(1)
     expect(reloaded.result.current.todos[0].text).toBe('persist me')
   })
+
+  it("starts with filter='all' and shows everything", () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => result.current.addTodo('a'))
+    act(() => result.current.addTodo('b'))
+    const idA = result.current.todos[0].id
+    act(() => result.current.toggleTodo(idA))
+    expect(result.current.filter).toBe('all')
+    expect(result.current.visibleTodos).toHaveLength(2)
+  })
+
+  it("filter='active' hides completed todos", () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => result.current.addTodo('a'))
+    act(() => result.current.addTodo('b'))
+    const idA = result.current.todos[0].id
+    act(() => result.current.toggleTodo(idA))
+    act(() => result.current.setFilter('active'))
+    expect(result.current.visibleTodos).toHaveLength(1)
+    expect(result.current.visibleTodos[0].text).toBe('b')
+  })
+
+  it("filter='completed' hides incomplete todos", () => {
+    const { result } = renderHook(() => useTodos())
+    act(() => result.current.addTodo('a'))
+    act(() => result.current.addTodo('b'))
+    const idA = result.current.todos[0].id
+    act(() => result.current.toggleTodo(idA))
+    act(() => result.current.setFilter('completed'))
+    expect(result.current.visibleTodos).toHaveLength(1)
+    expect(result.current.visibleTodos[0].text).toBe('a')
+  })
 })
